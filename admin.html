@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>팀·직원 설정 (관리자)</title>
+  <style>
+    :root {
+      --bg-dark: #1a1d23;
+      --bg-card: #252830;
+      --bg-input: #2d3139;
+      --border: #3d424d;
+      --text: #e8eaed;
+      --text-muted: #9aa0a6;
+      --accent: #5c7cfa;
+      --danger: #e74c3c;
+      --success: #2ecc71;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .lock-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      background: linear-gradient(160deg, #1a1d23 0%, #0f1114 100%);
+    }
+    .lock-screen.hidden { display: none; }
+
+    .lock-screen h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    .lock-screen p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem; }
+
+    .login-form { width: 100%; max-width: 320px; }
+    .login-form input {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+    .login-form input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .login-error { color: var(--danger); font-size: 0.85rem; margin-top: 0.5rem; min-height: 1.2em; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; width: 100%; }
+    .btn-primary:hover { background: #4c6ef5; }
+    .btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--text-muted); }
+    .btn-danger { background: rgba(231, 76, 60, 0.2); color: var(--danger); }
+    .btn-danger:hover { background: rgba(231, 76, 60, 0.35); }
+    .btn-small { padding: 0.35rem 0.65rem; font-size: 0.8rem; }
+
+    .app { display: none; min-height: 100vh; }
+    .app.visible { display: block; }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+    }
+    .header h1 { font-size: 1.1rem; font-weight: 600; }
+    .header-badge { font-size: 0.7rem; color: var(--text-muted); background: var(--bg-input); padding: 0.2rem 0.5rem; border-radius: 4px; margin-left: 0.5rem; }
+    .header-links { display: flex; gap: 0.75rem; align-items: center; }
+    .header-links a { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+    .header-links a:hover { text-decoration: underline; }
+    .btn-logout { background: transparent; color: var(--text-muted); border: 1px solid var(--border); font-size: 0.85rem; }
+
+    .container { max-width: 800px; margin: 0 auto; padding: 1.5rem; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 1rem; color: var(--text); }
+
+    label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.35rem; }
+    input, select {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+    .form-row { display: flex; gap: 0.75rem; align-items: flex-end; margin-bottom: 1rem; flex-wrap: wrap; }
+    .form-row .field { flex: 1; min-width: 160px; }
+    .form-row .field.small { flex: 0 0 120px; }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 0.85rem;
+      background: var(--bg-input);
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      gap: 0.75rem;
+    }
+    .list-item span { flex: 1; }
+    .list-item .actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+    .list-item .view { display: flex; align-items: center; justify-content: space-between; flex: 1; }
+    .list-item .edit { display: none; flex: 1; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .list-item.editing .view { display: none; }
+    .list-item.editing .edit { display: flex; }
+    .list-item.editing .edit input { margin: 0; flex: 1; }
+
+    .empty-msg { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
+    .panel-title { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+
+    .excel-template-row { margin-bottom: 1rem; }
+    .excel-template-row .btn { text-decoration: none; }
+
+    .excel-upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      background: var(--bg-input);
+      margin-bottom: 1rem;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .excel-upload-zone.dragover { border-color: var(--accent); background: rgba(92, 124, 250, 0.08); }
+    .excel-upload-zone input[type="file"] { display: none; }
+    .excel-upload-zone .zone-label { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .excel-upload-zone .zone-hint { color: var(--text-muted); font-size: 0.8rem; }
+    .excel-result { margin-top: 1rem; padding: 0.75rem; border-radius: 6px; font-size: 0.9rem; }
+    .excel-result.success { background: rgba(46, 204, 113, 0.15); color: var(--success); }
+    .excel-result.error { background: rgba(231, 76, 60, 0.15); color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="lock-screen" id="lockScreen">
+    <h1>팀·직원 설정</h1>
+    <p>관리자 전용</p>
+    <form class="login-form" id="loginForm">
+      <input type="text" id="adminUsername" placeholder="관리자 아이디" autocomplete="username" required>
+      <input type="password" id="adminPassword" placeholder="비밀번호" autocomplete="off" required>
+      <button type="submit" class="btn btn-primary">입장</button>
+      <p class="login-error" id="loginError"></p>
+    </form>
+  </div>
+
+  <div class="app" id="app">
+    <header class="header">
+      <h1>팀·직원 설정 <span class="header-badge">관리자</span></h1>
+      <div class="header-links">
+        <a href="index.html">인사기록 페이지로</a>
+        <button type="button" class="btn btn-logout" id="btnLogout">로그아웃</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card">
+        <h2>관리자 계정 관리</h2>
+        <p class="panel-title">관리자 아이디를 추가·삭제할 수 있습니다. 최소 1명의 관리자는 유지되어야 합니다.</p>
+        <div class="form-row" id="adminAddForm">
+          <div class="field">
+            <label for="newAdminUsername">아이디</label>
+            <input type="text" id="newAdminUsername" placeholder="예: admin2" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="newAdminPassword">비밀번호</label>
+            <input type="password" id="newAdminPassword" placeholder="비밀번호" autocomplete="new-password">
+          </div>
+          <button type="button" class="btn btn-primary" id="btnAddAdmin">관리자 추가</button>
+        </div>
+        <div class="panel-title">등록된 관리자</div>
+        <div id="adminList"></div>
+      </section>
+
+      <section class="card">
+        <h2>팀 목록 수정</h2>
+        <div class="form-row" id="teamAddForm">
+          <div class="field">
+            <label for="newTeamName">새 팀 이름</label>
+            <input type="text" id="newTeamName" placeholder="예: 영업팀">
+          </div>
+          <button type="button" class="btn btn-primary" id="btnAddTeam">팀 추가</button>
+        </div>
+        <div class="panel-title">등록된 팀</div>
+        <div id="teamList"></div>
+      </section>
+
+      <section class="card">
+        <h2>엑셀 업로드로 직원 일괄 추가</h2>
+        <p class="panel-title">엑셀 파일(.xlsx, .xls)을 업로드하면 첫 시트의 데이터로 직원을 일괄 등록합니다. 첫 행은 헤더로 사용됩니다.</p>
+        <div class="excel-template-row">
+          <a href="#" class="btn btn-secondary" id="btnDownloadTemplate">직원 일괄등록 양식 다운로드</a>
+        </div>
+        <div class="excel-upload-zone" id="excelUploadZone">
+          <input type="file" id="excelFileInput" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+          <div class="zone-label" id="excelZoneLabel">파일을 여기에 놓거나 클릭하여 선택</div>
+          <div class="zone-hint">헤더: 「팀」, 「직원명」 또는 「이름」 (첫 행)</div>
+        </div>
+        <div id="excelResult"></div>
+      </section>
+
+      <section class="card">
+        <h2>팀별 직원 수정</h2>
+        <div class="form-row">
+          <div class="field">
+            <label for="adminTeamSelect">팀 선택</label>
+            <select id="adminTeamSelect">
+              <option value="">팀을 선택하세요</option>
+            </select>
+          </div>
+        </div>
+        <div id="employeeSection" style="display: none;">
+          <div class="form-row" id="employeeAddForm">
+            <div class="field">
+              <label for="newEmployeeName">직원 이름</label>
+              <input type="text" id="newEmployeeName" placeholder="홍길동">
+            </div>
+            <button type="button" class="btn btn-primary" id="btnAddEmployee">직원 추가</button>
+          </div>
+          <div class="panel-title">해당 팀 직원 목록</div>
+          <div id="employeeList"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    (function () {
+      const TEAMS_KEY = 'hr_teams';
+      const EMPLOYEES_KEY = 'hr_employees';
+      const ADMIN_KEY = 'hr_admin_auth';
+      const ADMIN_ACCOUNTS_KEY = 'hr_admin_accounts';
+      const PASSWORD_KEY = 'hr_admin_password';
+      const DEFAULT_TEAMS = ['개발팀', '디자인팀', '기획팀', '인사팀', '미지정'];
+
+      function getAdminAccounts() {
+        try {
+          var raw = localStorage.getItem(ADMIN_ACCOUNTS_KEY);
+          if (raw) return JSON.parse(raw);
+          var oldPw = localStorage.getItem(PASSWORD_KEY);
+          if (oldPw) {
+            var accounts = [{ username: 'admin', password: oldPw }];
+            localStorage.setItem(ADMIN_ACCOUNTS_KEY, JSON.stringify(accounts));
+            return accounts;
+          }
+          return [{ username: 'admin', password: 'admin123' }];
+        } catch {
+          return [{ username: 'admin', password: 'admin123' }];
+        }
+      }
+      function saveAdminAccounts(accounts) {
+        localStorage.setItem(ADMIN_ACCOUNTS_KEY, JSON.stringify(accounts));
+      }
+      function isAuthenticated() {
+        return sessionStorage.getItem(ADMIN_KEY) === 'true';
+      }
+      function setAuthenticated(value) {
+        if (value) sessionStorage.setItem(ADMIN_KEY, 'true');
+        else sessionStorage.removeItem(ADMIN_KEY);
+      }
+
+      function getTeams() {
+        try {
+          var raw = localStorage.getItem(TEAMS_KEY);
+          var list = raw ? JSON.parse(raw) : DEFAULT_TEAMS.slice();
+          if (list.indexOf('미지정') === -1) list.push('미지정');
+          return list;
+        } catch {
+          return DEFAULT_TEAMS.slice();
+        }
+      }
+      function saveTeams(teams) {
+        localStorage.setItem(TEAMS_KEY, JSON.stringify(teams));
+      }
+
+      function getEmployees() {
+        try {
+          var raw = localStorage.getItem(EMPLOYEES_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch {
+          return [];
+        }
+      }
+      function saveEmployees(employees) {
+        localStorage.setItem(EMPLOYEES_KEY, JSON.stringify(employees));
+      }
+
+      function escapeHtml(text) {
+        if (text == null) return '';
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function showScreen(lock, main) {
+        document.getElementById('lockScreen').classList.toggle('hidden', !lock);
+        document.getElementById('app').classList.toggle('visible', main);
+      }
+
+      function renderAdminList() {
+        var accounts = getAdminAccounts();
+        var listEl = document.getElementById('adminList');
+        if (accounts.length === 0) {
+          listEl.innerHTML = '<div class="empty-msg">등록된 관리자가 없습니다.</div>';
+          return;
+        }
+        listEl.innerHTML = accounts.map(function (a) {
+          var canDelete = accounts.length > 1;
+          var deleteBtn = canDelete
+            ? '<button type="button" class="btn btn-danger btn-small btn-delete-admin" data-username="' + escapeHtml(a.username) + '">삭제</button>'
+            : '<span class="btn btn-secondary btn-small" style="cursor:default; opacity:0.6;" title="최소 1명의 관리자는 필요합니다">삭제</span>';
+          return '<div class="list-item"><div class="view"><span>' + escapeHtml(a.username) + '</span><div class="actions">' + deleteBtn + '</div></div></div>';
+        }).join('');
+        listEl.querySelectorAll('.btn-delete-admin').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var username = btn.getAttribute('data-username');
+            if (!confirm('관리자 "' + username + '"을(를) 삭제할까요?')) return;
+            var accounts = getAdminAccounts().filter(function (a) { return a.username !== username; });
+            if (accounts.length === 0) { alert('최소 1명의 관리자는 유지되어야 합니다.'); return; }
+            saveAdminAccounts(accounts);
+            renderAdminList();
+          });
+        });
+      }
+
+      function renderTeamList() {
+        var teams = getTeams();
+        var listEl = document.getElementById('teamList');
+        if (teams.length === 0) {
+          listEl.innerHTML = '<div class="empty-msg">등록된 팀이 없습니다.</div>';
+          return;
+        }
+        listEl.innerHTML = teams.map(function (name) {
+          var isUnassigned = name === '미지정';
+          var deleteBtn = isUnassigned
+            ? '<span class="btn btn-secondary btn-small" style="cursor:default; opacity:0.6;" title="미지정 팀은 삭제할 수 없습니다">삭제</span>'
+            : '<button type="button" class="btn btn-danger btn-small btn-delete-team" data-name="' + escapeHtml(name) + '">삭제</button>';
+          return (
+            '<div class="list-item" data-team="' + escapeHtml(name) + '">' +
+              '<div class="view"><span>' + escapeHtml(name) + '</span><div class="actions">' +
+                (isUnassigned ? '' : '<button type="button" class="btn btn-secondary btn-small btn-edit-team" data-name="' + escapeHtml(name) + '">수정</button>') +
+                deleteBtn +
+              '</div></div>' +
+              (isUnassigned ? '' : (
+                '<div class="edit">' +
+                  '<input type="text" class="team-edit-input" value="' + escapeHtml(name) + '" data-original="' + escapeHtml(name) + '">' +
+                  '<button type="button" class="btn btn-primary btn-small btn-save-team">저장</button>' +
+                  '<button type="button" class="btn btn-secondary btn-small btn-cancel-edit-team">취소</button>' +
+                '</div>'
+              )) +
+            '</div>'
+          );
+        }).join('');
+
+        listEl.querySelectorAll('.btn-delete-team').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var name = btn.getAttribute('data-name');
+            if (!confirm('팀 "' + name + '"을(를) 삭제하면 해당 팀 직원은 "미지정"으로 이동합니다. 삭제할까요?')) return;
+            var teams = getTeams().filter(function (t) { return t !== name; });
+            var employees = getEmployees().map(function (e) {
+              return e.teamName === name ? { name: e.name, teamName: '미지정' } : e;
+            });
+            saveTeams(teams);
+            saveEmployees(employees);
+            renderTeamList();
+            fillAdminTeamSelect();
+            renderEmployeeList();
+          });
+        });
+
+        listEl.querySelectorAll('.btn-edit-team').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var row = btn.closest('.list-item');
+            row.classList.add('editing');
+            row.querySelector('.team-edit-input').focus();
+          });
+        });
+        listEl.querySelectorAll('.btn-save-team').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var row = btn.closest('.list-item');
+            var input = row.querySelector('.team-edit-input');
+            var newName = (input.value || '').trim();
+            var original = input.getAttribute('data-original');
+            if (!newName) { alert('팀 이름을 입력하세요.'); return; }
+            if (newName === original) { row.classList.remove('editing'); return; }
+            var teams = getTeams();
+            if (teams.indexOf(newName) >= 0) { alert('이미 존재하는 팀 이름입니다.'); return; }
+            teams = teams.map(function (t) { return t === original ? newName : t; });
+            var employees = getEmployees().map(function (e) {
+              return e.teamName === original ? { name: e.name, teamName: newName } : e;
+            });
+            saveTeams(teams);
+            saveEmployees(employees);
+            renderTeamList();
+            fillAdminTeamSelect();
+            renderEmployeeList();
+            row.classList.remove('editing');
+            if (document.getElementById('adminTeamSelect').value === original) {
+              document.getElementById('adminTeamSelect').value = newName;
+            }
+          });
+        });
+        listEl.querySelectorAll('.btn-cancel-edit-team').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            btn.closest('.list-item').classList.remove('editing');
+          });
+        });
+      }
+
+      function fillAdminTeamSelect() {
+        var sel = document.getElementById('adminTeamSelect');
+        var teams = getTeams();
+        sel.innerHTML = '<option value="">팀을 선택하세요</option>' +
+          teams.map(function (t) { return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>'; }).join('');
+      }
+
+      function renderEmployeeList() {
+        var team = document.getElementById('adminTeamSelect').value;
+        var section = document.getElementById('employeeSection');
+        var listEl = document.getElementById('employeeList');
+        if (!team) {
+          section.style.display = 'none';
+          return;
+        }
+        section.style.display = 'block';
+        var employees = getEmployees().filter(function (e) { return e.teamName === team; });
+        if (employees.length === 0) {
+          listEl.innerHTML = '<div class="empty-msg">이 팀에 등록된 직원이 없습니다. 위에서 직원을 추가하세요.</div>';
+          return;
+        }
+        listEl.innerHTML = employees.map(function (e) {
+          return (
+            '<div class="list-item" data-employee-name="' + escapeHtml(e.name) + '" data-employee-team="' + escapeHtml(e.teamName) + '">' +
+              '<div class="view"><span>' + escapeHtml(e.name) + '</span>' +
+              '<div class="actions">' +
+                '<button type="button" class="btn btn-secondary btn-small btn-edit-employee" data-name="' + escapeHtml(e.name) + '" data-team="' + escapeHtml(e.teamName) + '">수정</button>' +
+                '<button type="button" class="btn btn-danger btn-small btn-delete-employee" data-name="' + escapeHtml(e.name) + '" data-team="' + escapeHtml(e.teamName) + '">삭제</button>' +
+              '</div></div>' +
+              '<div class="edit">' +
+                '<input type="text" class="employee-name-input" value="' + escapeHtml(e.name) + '" placeholder="이름">' +
+                '<select class="employee-team-select">' + getTeams().filter(function (t) { return t; }).map(function (t) {
+                  return '<option value="' + escapeHtml(t) + '"' + (t === e.teamName ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+                }).join('') + '</select>' +
+                '<button type="button" class="btn btn-primary btn-small btn-save-employee">저장</button>' +
+                '<button type="button" class="btn btn-secondary btn-small btn-cancel-edit-employee">취소</button>' +
+              '</div>' +
+            '</div>'
+          );
+        }).join('');
+
+        listEl.querySelectorAll('.btn-edit-employee').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var row = btn.closest('.list-item');
+            row.classList.add('editing');
+            row.querySelector('.employee-name-input').focus();
+          });
+        });
+        listEl.querySelectorAll('.btn-save-employee').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var row = btn.closest('.list-item');
+            var nameInput = row.querySelector('.employee-name-input');
+            var teamSelect = row.querySelector('.employee-team-select');
+            var newName = (nameInput.value || '').trim();
+            var newTeam = teamSelect.value;
+            var oldName = row.getAttribute('data-employee-name');
+            var oldTeam = row.getAttribute('data-employee-team');
+            if (!newName) { alert('직원 이름을 입력하세요.'); return; }
+            var employees = getEmployees();
+            var sameExists = employees.some(function (e) {
+              return (e.name === newName && e.teamName === newTeam) && !(e.name === oldName && e.teamName === oldTeam);
+            });
+            if (sameExists) { alert('같은 팀에 이미 동일한 이름의 직원이 있습니다.'); return; }
+            employees = employees.map(function (e) {
+              if (e.name === oldName && e.teamName === oldTeam) return { name: newName, teamName: newTeam };
+              return e;
+            });
+            saveEmployees(employees);
+            row.classList.remove('editing');
+            row.setAttribute('data-employee-name', newName);
+            row.setAttribute('data-employee-team', newTeam);
+            renderEmployeeList();
+          });
+        });
+        listEl.querySelectorAll('.btn-cancel-edit-employee').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            btn.closest('.list-item').classList.remove('editing');
+            renderEmployeeList();
+          });
+        });
+        listEl.querySelectorAll('.btn-delete-employee').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var name = btn.getAttribute('data-name');
+            var team = btn.getAttribute('data-team');
+            if (!confirm('직원 "' + name + '"을(를) 목록에서 삭제할까요? (인사기록 데이터는 유지됩니다)')) return;
+            var employees = getEmployees().filter(function (e) { return !(e.name === name && e.teamName === team); });
+            saveEmployees(employees);
+            renderEmployeeList();
+          });
+        });
+      }
+
+      document.getElementById('loginForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var username = (document.getElementById('adminUsername').value || '').trim();
+        var password = document.getElementById('adminPassword').value;
+        var errorEl = document.getElementById('loginError');
+        var accounts = getAdminAccounts();
+        var found = accounts.some(function (a) { return a.username === username && a.password === password; });
+        if (found) {
+          errorEl.textContent = '';
+          setAuthenticated(true);
+          showScreen(false, true);
+          fillAdminTeamSelect();
+          renderTeamList();
+          renderAdminList();
+        } else {
+          errorEl.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
+          document.getElementById('adminPassword').focus();
+        }
+      });
+
+      document.getElementById('btnLogout').addEventListener('click', function () {
+        setAuthenticated(false);
+        showScreen(true, false);
+        document.getElementById('adminUsername').value = '';
+        document.getElementById('adminPassword').value = '';
+        document.getElementById('loginError').textContent = '';
+      });
+
+      document.getElementById('btnAddAdmin').addEventListener('click', function () {
+        var username = (document.getElementById('newAdminUsername').value || '').trim();
+        var password = document.getElementById('newAdminPassword').value;
+        if (!username) { alert('아이디를 입력하세요.'); return; }
+        if (!password) { alert('비밀번호를 입력하세요.'); return; }
+        var accounts = getAdminAccounts();
+        if (accounts.some(function (a) { return a.username === username; })) {
+          alert('이미 존재하는 아이디입니다.'); return;
+        }
+        accounts.push({ username: username, password: password });
+        saveAdminAccounts(accounts);
+        document.getElementById('newAdminUsername').value = '';
+        document.getElementById('newAdminPassword').value = '';
+        renderAdminList();
+      });
+
+      document.getElementById('btnAddTeam').addEventListener('click', function () {
+        var input = document.getElementById('newTeamName');
+        var name = (input.value || '').trim();
+        if (!name) { alert('팀 이름을 입력하세요.'); return; }
+        var teams = getTeams();
+        if (teams.indexOf(name) >= 0) { alert('이미 존재하는 팀입니다.'); return; }
+        teams.push(name);
+        saveTeams(teams);
+        input.value = '';
+        renderTeamList();
+        fillAdminTeamSelect();
+      });
+
+      document.getElementById('adminTeamSelect').addEventListener('change', function () {
+        renderEmployeeList();
+      });
+
+      document.getElementById('btnAddEmployee').addEventListener('click', function () {
+        var team = document.getElementById('adminTeamSelect').value;
+        if (!team) { alert('먼저 팀을 선택하세요.'); return; }
+        var input = document.getElementById('newEmployeeName');
+        var name = (input.value || '').trim();
+        if (!name) { alert('직원 이름을 입력하세요.'); return; }
+        var employees = getEmployees();
+        if (employees.some(function (e) { return e.name === name && e.teamName === team; })) {
+          alert('이미 해당 팀에 등록된 직원입니다.'); return;
+        }
+        employees.push({ name: name, teamName: team });
+        saveEmployees(employees);
+        input.value = '';
+        renderEmployeeList();
+      });
+
+      function findColumnIndex(headers, names) {
+        if (!headers || !headers.length) return -1;
+        for (var i = 0; i < headers.length; i++) {
+          var cell = (headers[i] != null ? String(headers[i]).trim() : '');
+          for (var j = 0; j < names.length; j++) {
+            if (cell === names[j] || cell.toLowerCase() === names[j].toLowerCase()) return i;
+          }
+        }
+        return -1;
+      }
+
+      function processExcelFile(file) {
+        var resultEl = document.getElementById('excelResult');
+        resultEl.innerHTML = '';
+        resultEl.className = 'excel-result';
+        if (!file || (!file.name.match(/\.(xlsx|xls)$/i) && file.type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && file.type !== 'application/vnd.ms-excel')) {
+          resultEl.className = 'excel-result error';
+          resultEl.textContent = '엑셀 파일(.xlsx, .xls)만 업로드할 수 있습니다.';
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            if (typeof XLSX === 'undefined') {
+              resultEl.className = 'excel-result error';
+              resultEl.textContent = '엑셀 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도하세요.';
+              return;
+            }
+            var data = new Uint8Array(e.target.result);
+            var workbook = XLSX.read(data, { type: 'array' });
+            var firstSheetName = workbook.SheetNames[0];
+            if (!firstSheetName) {
+              resultEl.className = 'excel-result error';
+              resultEl.textContent = '시트가 없습니다.';
+              return;
+            }
+            var sheet = workbook.Sheets[firstSheetName];
+            var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            if (!rows.length) {
+              resultEl.className = 'excel-result error';
+              resultEl.textContent = '데이터가 없습니다. 첫 행에 팀, 직원명(또는 이름) 헤더를 넣어주세요.';
+              return;
+            }
+            var headers = rows[0].map(function (h) { return h != null ? String(h).trim() : ''; });
+            var teamCol = findColumnIndex(headers, ['팀', 'team', '소속팀', '부서']);
+            var nameCol = findColumnIndex(headers, ['직원명', '이름', 'name', '성명', '직원']);
+            if (teamCol < 0 || nameCol < 0) {
+              resultEl.className = 'excel-result error';
+              resultEl.textContent = '헤더에서 「팀」과 「직원명」(또는 「이름」) 열을 찾을 수 없습니다. 첫 행에 팀, 직원명 열이 있어야 합니다.';
+              return;
+            }
+            var existing = getEmployees();
+            var seen = {};
+            existing.forEach(function (e) { seen[e.teamName + '\t' + e.name] = true; });
+            var added = 0;
+            var skipped = 0;
+            for (var r = 1; r < rows.length; r++) {
+              var row = rows[r];
+              var team = (row[teamCol] != null ? String(row[teamCol]).trim() : '');
+              var name = (row[nameCol] != null ? String(row[nameCol]).trim() : '');
+              if (!team || !name) continue;
+              var key = team + '\t' + name;
+              if (seen[key]) { skipped++; continue; }
+              seen[key] = true;
+              existing.push({ name: name, teamName: team });
+              added++;
+            }
+            saveEmployees(existing);
+            var teams = getTeams();
+            existing.forEach(function (e) {
+              if (teams.indexOf(e.teamName) === -1 && e.teamName !== '미지정') {
+                teams.push(e.teamName);
+              }
+            });
+            saveTeams(teams);
+            fillAdminTeamSelect();
+            renderTeamList();
+            renderEmployeeList();
+            resultEl.className = 'excel-result success';
+            resultEl.textContent = '직원 ' + added + '명이 추가되었습니다.' + (skipped > 0 ? ' (중복 ' + skipped + '명 제외)' : '');
+          } catch (err) {
+            resultEl.className = 'excel-result error';
+            resultEl.textContent = '파일 처리 중 오류: ' + (err.message || err);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      var excelFileInput = document.getElementById('excelFileInput');
+      var excelUploadZone = document.getElementById('excelUploadZone');
+
+      excelUploadZone.addEventListener('click', function () { excelFileInput.click(); });
+      excelFileInput.addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        if (file) processExcelFile(file);
+        this.value = '';
+      });
+
+      excelUploadZone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        excelUploadZone.classList.add('dragover');
+      });
+      excelUploadZone.addEventListener('dragleave', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        excelUploadZone.classList.remove('dragover');
+      });
+      excelUploadZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        excelUploadZone.classList.remove('dragover');
+        var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) processExcelFile(file);
+      });
+
+      document.getElementById('btnDownloadTemplate').addEventListener('click', function (e) {
+        e.preventDefault();
+        if (typeof XLSX === 'undefined') {
+          alert('엑셀 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도하세요.');
+          return;
+        }
+        var data = [
+          ['팀', '직원명'],
+          ['개발팀', '홍길동'],
+          ['개발팀', '김철수'],
+          ['디자인팀', '이영희'],
+          ['기획팀', '박민수'],
+          ['', '']
+        ];
+        var sheet = XLSX.utils.aoa_to_sheet(data);
+        var colWidths = [{ wch: 12 }, { wch: 14 }];
+        sheet['!cols'] = colWidths;
+        var workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, sheet, '직원목록');
+        XLSX.writeFile(workbook, '직원_일괄등록_양식.xlsx');
+      });
+
+      if (isAuthenticated()) {
+        showScreen(false, true);
+        fillAdminTeamSelect();
+        renderTeamList();
+        renderAdminList();
+      } else {
+        showScreen(true, false);
+      }
+    })();
+  </script>
+</body>
+</html>
