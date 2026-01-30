@@ -15,7 +15,7 @@
 
 - **Vercel**  
   - 프로젝트: insagirok  
-  - 이 저장소를 Vercel에 연결하면 자동 배포됩니다.
+  - GitHub(anteate9106/insagirok) 연결 시 main 푸시마다 자동 배포됩니다.
 
 ## GitHub 연결
 
