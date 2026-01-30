@@ -19,28 +19,27 @@
 
 ## GitHub 연결
 
+저장소가 이미 초기화되어 있습니다. GitHub에서 `insagirok` 저장소를 만든 뒤 아래만 실행하세요.
+
 ```bash
-git init
-git add .
-git commit -m "Initial commit: insagirok"
-git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/insagirok.git
 git push -u origin main
 ```
 
-(GitHub에서 `insagirok` 저장소를 만든 뒤 `YOUR_USERNAME`을 본인 아이디로 바꾸세요.)
+(YOUR_USERNAME을 본인 GitHub 아이디로 바꾸세요.)
 
 ## Vercel 배포
 
-1. [Vercel](https://vercel.com) 로그인 후 **Add New Project**
-2. **Import Git Repository**에서 `insagirok` 저장소 선택
-3. Framework Preset: **Other** (또는 자동 감지)
-4. Deploy
+**방법 1 – Git 연동 (권장)**  
+1. GitHub에 `insagirok` 푸시 후 [Vercel](https://vercel.com) 로그인  
+2. **Add New Project** → **Import Git Repository**에서 `insagirok` 선택  
+3. Framework Preset: **Other** → Deploy  
+4. 이후 `main` 브랜치에 푸시할 때마다 자동 배포됩니다.
 
-또는 Vercel CLI:
-
+**방법 2 – Vercel CLI**  
 ```bash
 npm i -g vercel
+cd /path/to/insagirok
 vercel
 ```
 
