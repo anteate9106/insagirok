@@ -602,9 +602,11 @@
 
       async function fillTeamSelect() {
         var teams = await getTeams();
+        var others = teams.filter(function (t) { return t !== '미지정'; }).sort();
         var sel = document.getElementById('teamSelect');
-        sel.innerHTML = '<option value="">팀을 선택하세요</option>' +
-          teams.map(function (t) { return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>'; }).join('');
+        sel.innerHTML = '<option value="">팀을 선택하세요</option><option value="전체항목">전체항목</option>' +
+          others.map(function (t) { return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>'; }).join('') +
+          (teams.indexOf('미지정') >= 0 ? '<option value="미지정">미지정</option>' : '');
       }
 
       async function fillEmployeeSelect(teamName) {
@@ -612,7 +614,14 @@
         var records = await getRecords();
         var sel = document.getElementById('employeeSelect');
         var options = [];
-        if (teamName === '미지정') {
+        if (teamName === '전체항목') {
+          var allNames = {};
+          employees.forEach(function (e) { allNames[e.name] = true; });
+          records.forEach(function (r) {
+            if (r.employeeName) allNames[r.employeeName] = true;
+          });
+          options = Object.keys(allNames).sort();
+        } else if (teamName === '미지정') {
           var knownNames = {};
           employees.forEach(function (e) { knownNames[e.name] = true; });
           var fromRecords = [];
@@ -622,7 +631,8 @@
               fromRecords.push(r.employeeName);
             }
           });
-          options = fromRecords.sort();
+          var fromTeam = employees.filter(function (e) { return e.teamName === '미지정'; }).map(function (e) { return e.name; });
+          options = fromTeam.concat(fromRecords).filter(function (n, i, arr) { return arr.indexOf(n) === i; }).sort();
         } else if (teamName) {
           options = employees.filter(function (e) { return e.teamName === teamName; }).map(function (e) { return e.name; });
         }
@@ -631,17 +641,46 @@
         sel.disabled = !teamName;
       }
 
-      async function renderCenterRecords(selectedEmployeeName) {
+      async function getEmployeeNamesForTeam(teamName) {
+        if (!teamName || teamName === '전체항목') return null;
+        var employees = await getEmployees();
+        var records = await getRecords();
+        if (teamName === '미지정') {
+          var known = {};
+          employees.forEach(function (e) { known[e.name] = true; });
+          var list = [];
+          records.forEach(function (r) {
+            if (r.employeeName && !known[r.employeeName]) { known[r.employeeName] = true; list.push(r.employeeName); }
+          });
+          employees.filter(function (e) { return e.teamName === '미지정'; }).forEach(function (e) { list.push(e.name); });
+          return list.filter(function (n, i, arr) { return arr.indexOf(n) === i; });
+        }
+        return employees.filter(function (e) { return e.teamName === teamName; }).map(function (e) { return e.name; });
+      }
+
+      async function renderCenterRecords(selectedTeam) {
         var container = document.getElementById('centerRecords');
         var titleEl = document.getElementById('centerTitle');
         var addCard = document.getElementById('addRecordCard');
+        var employeeSelect = document.getElementById('employeeSelect');
 
-        titleEl.textContent = '발언·행동 기록 (전체)';
+        if (!selectedTeam || selectedTeam === '전체항목') {
+          titleEl.textContent = '발언·행동 기록 (전체)';
+        } else {
+          titleEl.textContent = '발언·행동 기록 — ' + escapeHtml(selectedTeam);
+        }
+
         var records = await getRecords();
+        var teamNames = await getEmployeeNamesForTeam(selectedTeam);
+        if (teamNames !== null) {
+          var set = {};
+          teamNames.forEach(function (n) { set[n] = true; });
+          records = records.filter(function (r) { return set[r.employeeName]; });
+        }
         var sorted = records.slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
 
         if (sorted.length === 0) {
-          container.innerHTML = '<div class="center-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>등록된 기록이 없습니다. 좌측에서 직원을 선택한 뒤 아래에서 새 기록을 등록할 수 있습니다.</div>';
+          container.innerHTML = '<div class="center-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>해당 팀의 기록이 없습니다. 직원을 선택한 뒤 아래에서 새 기록을 등록할 수 있습니다.</div>';
         } else {
           container.innerHTML = '<div class="records-list">' + sorted.map(function (r) {
             var dateStr = r.date ? new Date(r.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) : '-';
@@ -649,8 +688,9 @@
           }).join('') + '</div>';
         }
 
-        document.getElementById('employeeName').value = selectedEmployeeName || '';
-        addCard.style.display = selectedEmployeeName ? 'block' : 'none';
+        var selEmp = employeeSelect ? employeeSelect.value : '';
+        document.getElementById('employeeName').value = selEmp || '';
+        addCard.style.display = selEmp ? 'block' : 'none';
       }
 
       async function initApp() {
@@ -690,11 +730,13 @@
         var team = this.value;
         await fillEmployeeSelect(team);
         document.getElementById('employeeSelect').value = '';
-        await renderCenterRecords('');
+        await renderCenterRecords(team);
       });
 
-      document.getElementById('employeeSelect').addEventListener('change', async function () {
-        await renderCenterRecords(this.value);
+      document.getElementById('employeeSelect').addEventListener('change', function () {
+        var emp = this.value;
+        document.getElementById('employeeName').value = emp || '';
+        document.getElementById('addRecordCard').style.display = emp ? 'block' : 'none';
       });
 
       document.getElementById('recordForm').addEventListener('submit', async function (e) {
@@ -715,7 +757,8 @@
         await saveRecords(records);
         document.getElementById('recordContent').value = '';
         document.getElementById('recordDate').valueAsDate = new Date();
-        await renderCenterRecords(name);
+        var team = document.getElementById('teamSelect').value;
+        await renderCenterRecords(team);
       });
 
       if (isAuthenticated()) {
