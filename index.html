@@ -393,6 +393,18 @@
       margin-right: 0.5rem;
     }
 
+    .record-affiliation {
+      font-weight: 400;
+      font-size: 0.85em;
+      color: var(--text-muted);
+      margin-left: 0.35rem;
+    }
+
+    .record-affiliation::before {
+      content: '· ';
+      color: var(--text-muted);
+    }
+
     .record-content {
       font-size: 0.95rem;
       color: var(--text);
@@ -679,12 +691,18 @@
         }
         var sorted = records.slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
 
+        var employees = await getEmployees();
+        var nameToTeam = {};
+        employees.forEach(function (e) { nameToTeam[e.name] = e.teamName; });
+
         if (sorted.length === 0) {
           container.innerHTML = '<div class="center-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>해당 팀의 기록이 없습니다. 직원을 선택한 뒤 아래에서 새 기록을 등록할 수 있습니다.</div>';
         } else {
           container.innerHTML = '<div class="records-list">' + sorted.map(function (r) {
             var dateStr = r.date ? new Date(r.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }) : '-';
-            return '<div class="record-item"><div class="record-meta"><span class="record-employee">' + escapeHtml(r.employeeName) + '</span><span class="record-type">' + escapeHtml(r.type) + '</span><span class="record-date">' + escapeHtml(dateStr) + '</span></div><div class="record-content">' + escapeHtml(r.content) + '</div></div>';
+            var affiliation = nameToTeam[r.employeeName];
+            var nameAndTeam = escapeHtml(r.employeeName) + (affiliation ? ' <span class="record-affiliation">' + escapeHtml(affiliation) + '</span>' : '');
+            return '<div class="record-item"><div class="record-meta"><span class="record-employee">' + nameAndTeam + '</span><span class="record-type">' + escapeHtml(r.type) + '</span><span class="record-date">' + escapeHtml(dateStr) + '</span></div><div class="record-content">' + escapeHtml(r.content) + '</div></div>';
           }).join('') + '</div>';
         }
 
