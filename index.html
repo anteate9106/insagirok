@@ -559,32 +559,19 @@
 
   <script src="js/supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-db.js"></script>
   <script>
     (function () {
-      const STORAGE_KEY = 'hr_records';
-      const TEAMS_KEY = 'hr_teams';
-      const EMPLOYEES_KEY = 'hr_employees';
       const ADMIN_KEY = 'hr_admin_auth';
-      const ADMIN_ACCOUNTS_KEY = 'hr_admin_accounts';
-      const PASSWORD_KEY = 'hr_admin_password';
+      var db = window.insagirokDb || {};
 
-      const DEFAULT_TEAMS = ['개발팀', '디자인팀', '기획팀', '인사팀', '미지정'];
-
-      function getAdminAccounts() {
-        try {
-          var raw = localStorage.getItem(ADMIN_ACCOUNTS_KEY);
-          if (raw) return JSON.parse(raw);
-          var oldPw = localStorage.getItem(PASSWORD_KEY);
-          if (oldPw) {
-            var accounts = [{ username: 'admin', password: oldPw }];
-            localStorage.setItem(ADMIN_ACCOUNTS_KEY, JSON.stringify(accounts));
-            return accounts;
-          }
-          return [{ username: 'admin', password: 'admin123' }];
-        } catch {
-          return [{ username: 'admin', password: 'admin123' }];
-        }
-      }
+      function getAdminAccounts() { return db.getAdminAccounts ? db.getAdminAccounts() : Promise.resolve([{ username: 'admin', password: 'admin123' }]); }
+      function getTeams() { return db.getTeams ? db.getTeams() : Promise.resolve(['개발팀', '디자인팀', '기획팀', '인사팀', '미지정']); }
+      function saveTeams(teams) { return db.saveTeams ? db.saveTeams(teams) : Promise.resolve(); }
+      function getEmployees() { return db.getEmployees ? db.getEmployees() : Promise.resolve([]); }
+      function saveEmployees(employees) { return db.saveEmployees ? db.saveEmployees(employees) : Promise.resolve(); }
+      function getRecords() { return db.getRecords ? db.getRecords() : Promise.resolve([]); }
+      function saveRecords(records) { return db.saveRecords ? db.saveRecords(records) : Promise.resolve(); }
 
       function isAuthenticated() {
         return sessionStorage.getItem(ADMIN_KEY) === 'true';
@@ -593,47 +580,6 @@
       function setAuthenticated(value) {
         if (value) sessionStorage.setItem(ADMIN_KEY, 'true');
         else sessionStorage.removeItem(ADMIN_KEY);
-      }
-
-      function getTeams() {
-        try {
-          const raw = localStorage.getItem(TEAMS_KEY);
-          var list = raw ? JSON.parse(raw) : DEFAULT_TEAMS.slice();
-          if (list.indexOf('미지정') === -1) list.push('미지정');
-          return list;
-        } catch {
-          return DEFAULT_TEAMS.slice();
-        }
-      }
-
-      function saveTeams(teams) {
-        localStorage.setItem(TEAMS_KEY, JSON.stringify(teams));
-      }
-
-      function getEmployees() {
-        try {
-          const raw = localStorage.getItem(EMPLOYEES_KEY);
-          return raw ? JSON.parse(raw) : [];
-        } catch {
-          return [];
-        }
-      }
-
-      function saveEmployees(employees) {
-        localStorage.setItem(EMPLOYEES_KEY, JSON.stringify(employees));
-      }
-
-      function getRecords() {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          return raw ? JSON.parse(raw) : [];
-        } catch {
-          return [];
-        }
-      }
-
-      function saveRecords(records) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
       }
 
       function showScreen(lock, main) {
@@ -648,22 +594,22 @@
         return div.innerHTML;
       }
 
-      function fillTeamSelect() {
-        const sel = document.getElementById('teamSelect');
-        const teams = getTeams();
+      async function fillTeamSelect() {
+        var teams = await getTeams();
+        var sel = document.getElementById('teamSelect');
         sel.innerHTML = '<option value="">팀을 선택하세요</option>' +
           teams.map(function (t) { return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>'; }).join('');
       }
 
-      function fillEmployeeSelect(teamName) {
-        const sel = document.getElementById('employeeSelect');
-        const employees = getEmployees();
-        const records = getRecords();
-        let options = [];
+      async function fillEmployeeSelect(teamName) {
+        var employees = await getEmployees();
+        var records = await getRecords();
+        var sel = document.getElementById('employeeSelect');
+        var options = [];
         if (teamName === '미지정') {
-          const knownNames = {};
+          var knownNames = {};
           employees.forEach(function (e) { knownNames[e.name] = true; });
-          const fromRecords = [];
+          var fromRecords = [];
           records.forEach(function (r) {
             if (r.employeeName && !knownNames[r.employeeName]) {
               knownNames[r.employeeName] = true;
@@ -679,10 +625,10 @@
         sel.disabled = !teamName;
       }
 
-      function renderCenterRecords(employeeName) {
-        const container = document.getElementById('centerRecords');
-        const titleEl = document.getElementById('centerTitle');
-        const addCard = document.getElementById('addRecordCard');
+      async function renderCenterRecords(employeeName) {
+        var container = document.getElementById('centerRecords');
+        var titleEl = document.getElementById('centerTitle');
+        var addCard = document.getElementById('addRecordCard');
 
         if (!employeeName) {
           titleEl.textContent = '문제 발언·행동 기록';
@@ -692,8 +638,9 @@
         }
 
         titleEl.textContent = escapeHtml(employeeName) + ' — 문제 발언·행동 기록';
-        const records = getRecords().filter(function (r) { return r.employeeName === employeeName; });
-        const sorted = [...records].sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
+        var records = await getRecords();
+        var filtered = records.filter(function (r) { return r.employeeName === employeeName; });
+        var sorted = filtered.slice().sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
 
         if (sorted.length === 0) {
           container.innerHTML = '<div class="center-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>해당 직원의 기록이 없습니다. 아래에서 새 기록을 등록할 수 있습니다.</div>';
@@ -708,25 +655,25 @@
         addCard.style.display = 'block';
       }
 
-      function initApp() {
-        fillTeamSelect();
-        fillEmployeeSelect('');
+      async function initApp() {
+        await fillTeamSelect();
+        await fillEmployeeSelect('');
         document.getElementById('recordDate').valueAsDate = new Date();
-        renderCenterRecords('');
+        await renderCenterRecords('');
       }
 
-      document.getElementById('loginForm').addEventListener('submit', function (e) {
+      document.getElementById('loginForm').addEventListener('submit', async function (e) {
         e.preventDefault();
         var username = (document.getElementById('adminUsername').value || '').trim();
         var password = document.getElementById('adminPassword').value;
         var errorEl = document.getElementById('loginError');
-        var accounts = getAdminAccounts();
+        var accounts = await getAdminAccounts();
         var found = accounts.some(function (a) { return a.username === username && a.password === password; });
         if (found) {
           errorEl.textContent = '';
           setAuthenticated(true);
           showScreen(false, true);
-          initApp();
+          await initApp();
         } else {
           errorEl.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
           document.getElementById('adminPassword').focus();
@@ -741,25 +688,25 @@
         document.getElementById('loginError').textContent = '';
       });
 
-      document.getElementById('teamSelect').addEventListener('change', function () {
+      document.getElementById('teamSelect').addEventListener('change', async function () {
         var team = this.value;
-        fillEmployeeSelect(team);
+        await fillEmployeeSelect(team);
         document.getElementById('employeeSelect').value = '';
-        renderCenterRecords('');
+        await renderCenterRecords('');
       });
 
-      document.getElementById('employeeSelect').addEventListener('change', function () {
-        renderCenterRecords(this.value);
+      document.getElementById('employeeSelect').addEventListener('change', async function () {
+        await renderCenterRecords(this.value);
       });
 
-      document.getElementById('recordForm').addEventListener('submit', function (e) {
+      document.getElementById('recordForm').addEventListener('submit', async function (e) {
         e.preventDefault();
         var name = document.getElementById('employeeName').value.trim();
         var type = document.getElementById('recordType').value;
         var content = document.getElementById('recordContent').value.trim();
         var date = document.getElementById('recordDate').value;
         if (!name) { alert('직원을 선택한 뒤 기록을 등록하세요.'); return; }
-        var records = getRecords();
+        var records = await getRecords();
         records.push({
           id: Date.now().toString(36) + Math.random().toString(36).slice(2),
           employeeName: name,
@@ -767,10 +714,10 @@
           content: content,
           date: date
         });
-        saveRecords(records);
+        await saveRecords(records);
         document.getElementById('recordContent').value = '';
         document.getElementById('recordDate').valueAsDate = new Date();
-        renderCenterRecords(name);
+        await renderCenterRecords(name);
       });
 
       if (isAuthenticated()) {

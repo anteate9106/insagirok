@@ -259,66 +259,24 @@
 
   <script src="js/supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-db.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
     (function () {
-      const TEAMS_KEY = 'hr_teams';
-      const EMPLOYEES_KEY = 'hr_employees';
       const ADMIN_KEY = 'hr_admin_auth';
-      const ADMIN_ACCOUNTS_KEY = 'hr_admin_accounts';
-      const PASSWORD_KEY = 'hr_admin_password';
-      const DEFAULT_TEAMS = ['개발팀', '디자인팀', '기획팀', '인사팀', '미지정'];
-
-      function getAdminAccounts() {
-        try {
-          var raw = localStorage.getItem(ADMIN_ACCOUNTS_KEY);
-          if (raw) return JSON.parse(raw);
-          var oldPw = localStorage.getItem(PASSWORD_KEY);
-          if (oldPw) {
-            var accounts = [{ username: 'admin', password: oldPw }];
-            localStorage.setItem(ADMIN_ACCOUNTS_KEY, JSON.stringify(accounts));
-            return accounts;
-          }
-          return [{ username: 'admin', password: 'admin123' }];
-        } catch {
-          return [{ username: 'admin', password: 'admin123' }];
-        }
-      }
-      function saveAdminAccounts(accounts) {
-        localStorage.setItem(ADMIN_ACCOUNTS_KEY, JSON.stringify(accounts));
-      }
+      var db = window.insagirokDb || {};
+      function getAdminAccounts() { return db.getAdminAccounts ? db.getAdminAccounts() : Promise.resolve([{ username: 'admin', password: 'admin123' }]); }
+      function saveAdminAccounts(accounts) { return db.saveAdminAccounts ? db.saveAdminAccounts(accounts) : Promise.resolve(); }
+      function getTeams() { return db.getTeams ? db.getTeams() : Promise.resolve(['개발팀', '디자인팀', '기획팀', '인사팀', '미지정']); }
+      function saveTeams(teams) { return db.saveTeams ? db.saveTeams(teams) : Promise.resolve(); }
+      function getEmployees() { return db.getEmployees ? db.getEmployees() : Promise.resolve([]); }
+      function saveEmployees(employees) { return db.saveEmployees ? db.saveEmployees(employees) : Promise.resolve(); }
       function isAuthenticated() {
         return sessionStorage.getItem(ADMIN_KEY) === 'true';
       }
       function setAuthenticated(value) {
         if (value) sessionStorage.setItem(ADMIN_KEY, 'true');
         else sessionStorage.removeItem(ADMIN_KEY);
-      }
-
-      function getTeams() {
-        try {
-          var raw = localStorage.getItem(TEAMS_KEY);
-          var list = raw ? JSON.parse(raw) : DEFAULT_TEAMS.slice();
-          if (list.indexOf('미지정') === -1) list.push('미지정');
-          return list;
-        } catch {
-          return DEFAULT_TEAMS.slice();
-        }
-      }
-      function saveTeams(teams) {
-        localStorage.setItem(TEAMS_KEY, JSON.stringify(teams));
-      }
-
-      function getEmployees() {
-        try {
-          var raw = localStorage.getItem(EMPLOYEES_KEY);
-          return raw ? JSON.parse(raw) : [];
-        } catch {
-          return [];
-        }
-      }
-      function saveEmployees(employees) {
-        localStorage.setItem(EMPLOYEES_KEY, JSON.stringify(employees));
       }
 
       function escapeHtml(text) {
@@ -333,8 +291,8 @@
         document.getElementById('app').classList.toggle('visible', main);
       }
 
-      function renderAdminList() {
-        var accounts = getAdminAccounts();
+      async function renderAdminList() {
+        var accounts = await getAdminAccounts();
         var listEl = document.getElementById('adminList');
         if (accounts.length === 0) {
           listEl.innerHTML = '<div class="empty-msg">등록된 관리자가 없습니다.</div>';
@@ -348,19 +306,19 @@
           return '<div class="list-item"><div class="view"><span>' + escapeHtml(a.username) + '</span><div class="actions">' + deleteBtn + '</div></div></div>';
         }).join('');
         listEl.querySelectorAll('.btn-delete-admin').forEach(function (btn) {
-          btn.addEventListener('click', function () {
+          btn.addEventListener('click', async function () {
             var username = btn.getAttribute('data-username');
             if (!confirm('관리자 "' + username + '"을(를) 삭제할까요?')) return;
-            var accounts = getAdminAccounts().filter(function (a) { return a.username !== username; });
+            var accounts = (await getAdminAccounts()).filter(function (a) { return a.username !== username; });
             if (accounts.length === 0) { alert('최소 1명의 관리자는 유지되어야 합니다.'); return; }
-            saveAdminAccounts(accounts);
-            renderAdminList();
+            await saveAdminAccounts(accounts);
+            await renderAdminList();
           });
         });
       }
 
-      function renderTeamList() {
-        var teams = getTeams();
+      async function renderTeamList() {
+        var teams = await getTeams();
         var listEl = document.getElementById('teamList');
         if (teams.length === 0) {
           listEl.innerHTML = '<div class="empty-msg">등록된 팀이 없습니다.</div>';
@@ -389,18 +347,18 @@
         }).join('');
 
         listEl.querySelectorAll('.btn-delete-team').forEach(function (btn) {
-          btn.addEventListener('click', function () {
+          btn.addEventListener('click', async function () {
             var name = btn.getAttribute('data-name');
             if (!confirm('팀 "' + name + '"을(를) 삭제하면 해당 팀 직원은 "미지정"으로 이동합니다. 삭제할까요?')) return;
-            var teams = getTeams().filter(function (t) { return t !== name; });
-            var employees = getEmployees().map(function (e) {
+            var teams = (await getTeams()).filter(function (t) { return t !== name; });
+            var employees = (await getEmployees()).map(function (e) {
               return e.teamName === name ? { name: e.name, teamName: '미지정' } : e;
             });
-            saveTeams(teams);
-            saveEmployees(employees);
-            renderTeamList();
-            fillAdminTeamSelect();
-            renderEmployeeList();
+            await saveTeams(teams);
+            await saveEmployees(employees);
+            await renderTeamList();
+            await fillAdminTeamSelect();
+            await renderEmployeeList();
           });
         });
 
@@ -412,24 +370,24 @@
           });
         });
         listEl.querySelectorAll('.btn-save-team').forEach(function (btn) {
-          btn.addEventListener('click', function () {
+          btn.addEventListener('click', async function () {
             var row = btn.closest('.list-item');
             var input = row.querySelector('.team-edit-input');
             var newName = (input.value || '').trim();
             var original = input.getAttribute('data-original');
             if (!newName) { alert('팀 이름을 입력하세요.'); return; }
             if (newName === original) { row.classList.remove('editing'); return; }
-            var teams = getTeams();
+            var teams = await getTeams();
             if (teams.indexOf(newName) >= 0) { alert('이미 존재하는 팀 이름입니다.'); return; }
             teams = teams.map(function (t) { return t === original ? newName : t; });
-            var employees = getEmployees().map(function (e) {
+            var employees = (await getEmployees()).map(function (e) {
               return e.teamName === original ? { name: e.name, teamName: newName } : e;
             });
-            saveTeams(teams);
-            saveEmployees(employees);
-            renderTeamList();
-            fillAdminTeamSelect();
-            renderEmployeeList();
+            await saveTeams(teams);
+            await saveEmployees(employees);
+            await renderTeamList();
+            await fillAdminTeamSelect();
+            await renderEmployeeList();
             row.classList.remove('editing');
             if (document.getElementById('adminTeamSelect').value === original) {
               document.getElementById('adminTeamSelect').value = newName;
@@ -443,14 +401,14 @@
         });
       }
 
-      function fillAdminTeamSelect() {
+      async function fillAdminTeamSelect() {
         var sel = document.getElementById('adminTeamSelect');
-        var teams = getTeams();
+        var teams = await getTeams();
         sel.innerHTML = '<option value="">팀을 선택하세요</option>' +
           teams.map(function (t) { return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>'; }).join('');
       }
 
-      function renderEmployeeList() {
+      async function renderEmployeeList() {
         var team = document.getElementById('adminTeamSelect').value;
         var section = document.getElementById('employeeSection');
         var listEl = document.getElementById('employeeList');
@@ -459,7 +417,8 @@
           return;
         }
         section.style.display = 'block';
-        var employees = getEmployees().filter(function (e) { return e.teamName === team; });
+        var employees = (await getEmployees()).filter(function (e) { return e.teamName === team; });
+        var teams = await getTeams();
         if (employees.length === 0) {
           listEl.innerHTML = '<div class="empty-msg">이 팀에 등록된 직원이 없습니다. 위에서 직원을 추가하세요.</div>';
           return;
@@ -474,7 +433,7 @@
               '</div></div>' +
               '<div class="edit">' +
                 '<input type="text" class="employee-name-input" value="' + escapeHtml(e.name) + '" placeholder="이름">' +
-                '<select class="employee-team-select">' + getTeams().filter(function (t) { return t; }).map(function (t) {
+                '<select class="employee-team-select">' + teams.filter(function (t) { return t; }).map(function (t) {
                   return '<option value="' + escapeHtml(t) + '"' + (t === e.teamName ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
                 }).join('') + '</select>' +
                 '<button type="button" class="btn btn-primary btn-small btn-save-employee">저장</button>' +
@@ -492,7 +451,7 @@
           });
         });
         listEl.querySelectorAll('.btn-save-employee').forEach(function (btn) {
-          btn.addEventListener('click', function () {
+          btn.addEventListener('click', async function () {
             var row = btn.closest('.list-item');
             var nameInput = row.querySelector('.employee-name-input');
             var teamSelect = row.querySelector('.employee-team-select');
@@ -501,7 +460,7 @@
             var oldName = row.getAttribute('data-employee-name');
             var oldTeam = row.getAttribute('data-employee-team');
             if (!newName) { alert('직원 이름을 입력하세요.'); return; }
-            var employees = getEmployees();
+            var employees = await getEmployees();
             var sameExists = employees.some(function (e) {
               return (e.name === newName && e.teamName === newTeam) && !(e.name === oldName && e.teamName === oldTeam);
             });
@@ -510,45 +469,45 @@
               if (e.name === oldName && e.teamName === oldTeam) return { name: newName, teamName: newTeam };
               return e;
             });
-            saveEmployees(employees);
+            await saveEmployees(employees);
             row.classList.remove('editing');
             row.setAttribute('data-employee-name', newName);
             row.setAttribute('data-employee-team', newTeam);
-            renderEmployeeList();
+            await renderEmployeeList();
           });
         });
         listEl.querySelectorAll('.btn-cancel-edit-employee').forEach(function (btn) {
-          btn.addEventListener('click', function () {
+          btn.addEventListener('click', async function () {
             btn.closest('.list-item').classList.remove('editing');
-            renderEmployeeList();
+            await renderEmployeeList();
           });
         });
         listEl.querySelectorAll('.btn-delete-employee').forEach(function (btn) {
-          btn.addEventListener('click', function () {
+          btn.addEventListener('click', async function () {
             var name = btn.getAttribute('data-name');
             var team = btn.getAttribute('data-team');
             if (!confirm('직원 "' + name + '"을(를) 목록에서 삭제할까요? (인사기록 데이터는 유지됩니다)')) return;
-            var employees = getEmployees().filter(function (e) { return !(e.name === name && e.teamName === team); });
-            saveEmployees(employees);
-            renderEmployeeList();
+            var employees = (await getEmployees()).filter(function (e) { return !(e.name === name && e.teamName === team); });
+            await saveEmployees(employees);
+            await renderEmployeeList();
           });
         });
       }
 
-      document.getElementById('loginForm').addEventListener('submit', function (e) {
+      document.getElementById('loginForm').addEventListener('submit', async function (e) {
         e.preventDefault();
         var username = (document.getElementById('adminUsername').value || '').trim();
         var password = document.getElementById('adminPassword').value;
         var errorEl = document.getElementById('loginError');
-        var accounts = getAdminAccounts();
+        var accounts = await getAdminAccounts();
         var found = accounts.some(function (a) { return a.username === username && a.password === password; });
         if (found) {
           errorEl.textContent = '';
           setAuthenticated(true);
           showScreen(false, true);
-          fillAdminTeamSelect();
-          renderTeamList();
-          renderAdminList();
+          await fillAdminTeamSelect();
+          await renderTeamList();
+          await renderAdminList();
         } else {
           errorEl.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
           document.getElementById('adminPassword').focus();
@@ -563,53 +522,54 @@
         document.getElementById('loginError').textContent = '';
       });
 
-      document.getElementById('btnAddAdmin').addEventListener('click', function () {
+      document.getElementById('btnAddAdmin').addEventListener('click', async function () {
         var username = (document.getElementById('newAdminUsername').value || '').trim();
         var password = document.getElementById('newAdminPassword').value;
         if (!username) { alert('아이디를 입력하세요.'); return; }
         if (!password) { alert('비밀번호를 입력하세요.'); return; }
-        var accounts = getAdminAccounts();
+        var accounts = await getAdminAccounts();
         if (accounts.some(function (a) { return a.username === username; })) {
           alert('이미 존재하는 아이디입니다.'); return;
         }
         accounts.push({ username: username, password: password });
-        saveAdminAccounts(accounts);
+        await saveAdminAccounts(accounts);
         document.getElementById('newAdminUsername').value = '';
         document.getElementById('newAdminPassword').value = '';
-        renderAdminList();
+        await renderAdminList();
       });
 
-      document.getElementById('btnAddTeam').addEventListener('click', function () {
+      document.getElementById('btnAddTeam').addEventListener('click', async function () {
         var input = document.getElementById('newTeamName');
         var name = (input.value || '').trim();
         if (!name) { alert('팀 이름을 입력하세요.'); return; }
-        var teams = getTeams();
+        var teams = await getTeams();
         if (teams.indexOf(name) >= 0) { alert('이미 존재하는 팀입니다.'); return; }
         teams.push(name);
-        saveTeams(teams);
+        await saveTeams(teams);
         input.value = '';
-        renderTeamList();
-        fillAdminTeamSelect();
+        await renderTeamList();
+        await fillAdminTeamSelect();
+        await renderEmployeeList();
       });
 
-      document.getElementById('adminTeamSelect').addEventListener('change', function () {
-        renderEmployeeList();
+      document.getElementById('adminTeamSelect').addEventListener('change', async function () {
+        await renderEmployeeList();
       });
 
-      document.getElementById('btnAddEmployee').addEventListener('click', function () {
+      document.getElementById('btnAddEmployee').addEventListener('click', async function () {
         var team = document.getElementById('adminTeamSelect').value;
         if (!team) { alert('먼저 팀을 선택하세요.'); return; }
         var input = document.getElementById('newEmployeeName');
         var name = (input.value || '').trim();
         if (!name) { alert('직원 이름을 입력하세요.'); return; }
-        var employees = getEmployees();
+        var employees = await getEmployees();
         if (employees.some(function (e) { return e.name === name && e.teamName === team; })) {
           alert('이미 해당 팀에 등록된 직원입니다.'); return;
         }
         employees.push({ name: name, teamName: team });
-        saveEmployees(employees);
+        await saveEmployees(employees);
         input.value = '';
-        renderEmployeeList();
+        await renderEmployeeList();
       });
 
       function findColumnIndex(headers, names) {
@@ -633,7 +593,7 @@
           return;
         }
         var reader = new FileReader();
-        reader.onload = function (e) {
+        reader.onload = async function (e) {
           try {
             if (typeof XLSX === 'undefined') {
               resultEl.className = 'excel-result error';
@@ -663,7 +623,7 @@
               resultEl.textContent = '헤더에서 「팀」과 「직원명」(또는 「이름」) 열을 찾을 수 없습니다. 첫 행에 팀, 직원명 열이 있어야 합니다.';
               return;
             }
-            var existing = getEmployees();
+            var existing = await getEmployees();
             var seen = {};
             existing.forEach(function (e) { seen[e.teamName + '\t' + e.name] = true; });
             var added = 0;
@@ -679,17 +639,17 @@
               existing.push({ name: name, teamName: team });
               added++;
             }
-            saveEmployees(existing);
-            var teams = getTeams();
+            await saveEmployees(existing);
+            var teams = await getTeams();
             existing.forEach(function (e) {
               if (teams.indexOf(e.teamName) === -1 && e.teamName !== '미지정') {
                 teams.push(e.teamName);
               }
             });
-            saveTeams(teams);
-            fillAdminTeamSelect();
-            renderTeamList();
-            renderEmployeeList();
+            await saveTeams(teams);
+            await fillAdminTeamSelect();
+            await renderTeamList();
+            await renderEmployeeList();
             resultEl.className = 'excel-result success';
             resultEl.textContent = '직원 ' + added + '명이 추가되었습니다.' + (skipped > 0 ? ' (중복 ' + skipped + '명 제외)' : '');
           } catch (err) {
@@ -752,9 +712,11 @@
 
       if (isAuthenticated()) {
         showScreen(false, true);
-        fillAdminTeamSelect();
-        renderTeamList();
-        renderAdminList();
+        (async function () {
+          await fillAdminTeamSelect();
+          await renderTeamList();
+          await renderAdminList();
+        })();
       } else {
         showScreen(true, false);
       }
