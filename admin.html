@@ -303,8 +303,24 @@
           var deleteBtn = canDelete
             ? '<button type="button" class="btn btn-danger btn-small btn-delete-admin" data-username="' + escapeHtml(a.username) + '">삭제</button>'
             : '<span class="btn btn-secondary btn-small" style="cursor:default; opacity:0.6;" title="최소 1명의 관리자는 필요합니다">삭제</span>';
-          return '<div class="list-item"><div class="view"><span>' + escapeHtml(a.username) + '</span><div class="actions">' + deleteBtn + '</div></div></div>';
+          return '<div class="list-item"><div class="view"><span>' + escapeHtml(a.username) + '</span><div class="actions"><button type="button" class="btn btn-secondary btn-small btn-reset-password" data-username="' + escapeHtml(a.username) + '">비밀번호 재설정</button>' + deleteBtn + '</div></div></div>';
         }).join('');
+        listEl.querySelectorAll('.btn-reset-password').forEach(function (btn) {
+          btn.addEventListener('click', async function () {
+            var username = btn.getAttribute('data-username');
+            var newPw = prompt(username + ' 계정의 새 비밀번호를 입력하세요.');
+            if (newPw === null) return;
+            newPw = newPw.trim();
+            if (!newPw) { alert('비밀번호를 입력하세요.'); return; }
+            var accounts = await getAdminAccounts();
+            var found = accounts.find(function (a) { return a.username === username; });
+            if (!found) return;
+            found.password = newPw;
+            await saveAdminAccounts(accounts);
+            alert('비밀번호가 변경되었습니다.');
+            await renderAdminList();
+          });
+        });
         listEl.querySelectorAll('.btn-delete-admin').forEach(function (btn) {
           btn.addEventListener('click', async function () {
             var username = btn.getAttribute('data-username');
